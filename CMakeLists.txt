@@ -7,6 +7,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 find_package(TgBot REQUIRED)
 
 set(PROJECT_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/escapeMarkdownV2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/bot/core.cpp
     main.cpp

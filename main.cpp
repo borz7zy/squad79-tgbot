@@ -13,7 +13,6 @@ void shutdownMain()
 
     g_shutdownRequested = true;
 
-
     Logger::Get()->Log("Shutting down the bot.");
 
     exit(0);
@@ -32,14 +31,17 @@ int main()
 
     Logger::Get()->Log("Main start");
 
-    try {
+    try
+    {
         TgBot::TgLongPoll longPoll(*Core::Get()->bot);
-        while (!g_shutdownRequested) {
-            // Logger::Get()->Log("Long poll started");
+        while (!g_shutdownRequested)
+        {
             longPoll.start();
         }
-    } catch (TgBot::TgException& e) {
-        Logger::Get()->Log("Error: %s",  e.what());
+    }
+    catch (TgBot::TgException &e)
+    {
+        Logger::Get()->Log("Error: %s", e.what());
     }
 
     shutdownMain();

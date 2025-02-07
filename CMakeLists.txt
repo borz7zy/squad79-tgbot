@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.19)
+project(squad79-tgbot)
+
+set(CMAKE_CXX_STANDARD 20)
+
+find_package(Boost REQUIRED COMPONENTS system)
+find_package(TgBot REQUIRED)
+
+set(PROJECT_SOURCES
+    main.cpp
+    
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/bot/core.cpp
+)
+
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+target_link_libraries(${PROJECT_NAME} PRIVATE TgBot::TgBot)

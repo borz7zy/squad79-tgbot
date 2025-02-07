@@ -3,7 +3,7 @@
 #include "command.hpp"
 
 
-class AboutCmd : public Command
+class AboutCmd : public Command, public Singleton<AboutCmd>
 {
 public:
     void execute(TgBot::Message::Ptr message) override

@@ -14,6 +14,8 @@
 #include <functional>
 #include <vector>
 #include <map>
+#include <unordered_map>
+#include <any>
 #ifdef _WIN32
 #include <windows.h>
 #endif

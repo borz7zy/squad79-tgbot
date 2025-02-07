@@ -7,11 +7,9 @@ find_package(Boost REQUIRED COMPONENTS system)
 find_package(TgBot REQUIRED)
 
 set(PROJECT_SOURCES
-    main.cpp
-    
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp
-
     ${CMAKE_CURRENT_SOURCE_DIR}/bot/core.cpp
+    main.cpp
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

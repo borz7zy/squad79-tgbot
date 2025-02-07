@@ -2,15 +2,19 @@
 
 #include "start.hpp"
 #include "about.hpp"
+#include "debug.hpp"
 
 void startHandler(TgBot::Message::Ptr message)
 {
-    StartCmd helloCmd;
-    helloCmd.execute(message);
+    StartCmd::Get()->execute(message);
 }
 
 void aboutHandler(TgBot::Message::Ptr message)
 {
-    AboutCmd about;
-    about.execute(message);
+    AboutCmd::Get()->execute(message);
+}
+
+void cmdDebugHandler(TgBot::Message::Ptr message)
+{
+    DebugCmd::Get()->execute(message);
 }

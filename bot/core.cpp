@@ -1,6 +1,7 @@
 #include "core.hpp"
 #include "../utils/logger.hpp"
 #include "./commands/commandHandlers.hpp"
+#include "../utils/memory.hpp"
 
 Core::Core(){
     const char* tokenEnv = std::getenv("TGBOT_TOKEN");
@@ -12,11 +13,9 @@ Core::Core(){
     std::string token(tokenEnv);
     bot = std::make_unique<TgBot::Bot>(token);
 
-    // bot->getEvents().onCommand("start", [this](TgBot::Message::Ptr message) {
-    //     onStartCommand(message);
-    // });
     CommandManager::Get()->addCommand("start", startHandler);
     CommandManager::Get()->addCommand("about", aboutHandler);
+    CommandManager::Get()->addCommand("debug", cmdDebugHandler);
 
     CommandManager::Get()->registerCommandsToBot(bot.get());
 
@@ -46,10 +45,47 @@ std::string Core::getCommandName(const std::string &input){
 void Core::onAnyMessage(TgBot::Message::Ptr message) {
     if(message->text.length() <= 0)
         rn;
+
+    bool dbgv = false;
+    MemCache::Get()->getKeyValue("botDebug", dbgv);
+    
+    std::string chat_type = "";
+    if(dbgv) {
+        switch(message->chat->type){//Private, Group, Supergroup, Channel
+            case TgBot::Chat::Type::Private:{
+                chat_type = "Личка";
+                break;
+            }
+            case TgBot::Chat::Type::Group:{
+                chat_type = "Чат";
+                break;
+            }
+            case TgBot::Chat::Type::Supergroup:{
+                chat_type = "Суперчат";
+                break;
+            }
+            case TgBot::Chat::Type::Channel:{
+                chat_type = "Канал";
+                break;
+            }
+        }
+    }
     if (CommandManager::Get()->commandExists(getCommandName(message->text))) {
-        Logger::Get()->Log("User %s use command: %s", message->from->username.c_str(), message->text.c_str());
+        if(dbgv){
+            if(message->chat->type != TgBot::Chat::Type::Channel) {
+                Logger::Get()->Log("User %s use command: %s", message->from->username.c_str(), message->text.c_str());
+                bot->getApi().sendMessage(message->chat->id, "Юзер @"+message->from->username+"( "+std::to_string(message->from->id)
+                +" ) ввел команду /"+getCommandName(message->text)+" , тип чата: "+chat_type+".");
+            }
+        }
         rn;
     }
-    Logger::Get()->Log("User %s send text: %s", message->from->username.c_str(), message->text.c_str());
-    // bot->getApi().sendMessage(message->chat->id, "Your message is: " + message->text);
+    if(dbgv){
+        if(message->chat->type != TgBot::Chat::Type::Channel) {
+            Logger::Get()->Log("User %s send text: %s", message->from->username.c_str(), message->text.c_str());
+            bot->getApi().sendMessage(message->chat->id, 
+            "Юзер @"+message->from->username+"( "+std::to_string(message->from->id)+" ) отправил сообщение в чате "
+            +std::to_string(message->chat->id)+", тип чата: "+chat_type+". Сообщение:\n\n"+message->text);
+        }
+    }
 }

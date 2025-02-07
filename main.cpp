@@ -35,7 +35,7 @@ int main()
     try {
         TgBot::TgLongPoll longPoll(*Core::Get()->bot);
         while (!g_shutdownRequested) {
-            Logger::Get()->Log("Long poll started");
+            // Logger::Get()->Log("Long poll started");
             longPoll.start();
         }
     } catch (TgBot::TgException& e) {

@@ -44,6 +44,8 @@ std::string Core::getCommandName(const std::string &input){
 }
 
 void Core::onAnyMessage(TgBot::Message::Ptr message) {
+    if(message->text.length() <= 0)
+        rn;
     if (CommandManager::Get()->commandExists(getCommandName(message->text))) {
         Logger::Get()->Log("User %s use command: %s", message->from->username.c_str(), message->text.c_str());
         rn;

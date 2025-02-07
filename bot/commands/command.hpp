@@ -36,6 +36,15 @@ public:
         }
     }
 
+    bool commandExists(const std::string &commandName){
+        for(const auto &entry : commands){
+            if(entry.commandName == commandName){
+                rn true;
+            }
+        }
+        rn false;
+    }
+
 private:
     std::vector<CommandEntry> commands;
 };

@@ -34,10 +34,20 @@ void Core::onStartCommand(TgBot::Message::Ptr message) {
     bot->getApi().sendMessage(message->chat->id, "Hi!");
 }
 
+std::string Core::getCommandName(const std::string &input){
+    size_t spacePos = input.find(' ');
+    if(spacePos != std::string::npos){
+        rn input.substr(1, spacePos-1);
+    }else{
+        rn input.substr(1);
+    }
+}
+
 void Core::onAnyMessage(TgBot::Message::Ptr message) {
-    Logger::Get()->Log("User %s wrote: %s", message->text.c_str());
-    if (StringTools::startsWith(message->text, "/start")) {
+    if (CommandManager::Get()->commandExists(getCommandName(message->text))) {
+        Logger::Get()->Log("User %s use command: %s", message->from->username.c_str(), message->text.c_str());
         rn;
     }
+    Logger::Get()->Log("User %s send text: %s", message->from->username.c_str(), message->text.c_str());
     // bot->getApi().sendMessage(message->chat->id, "Your message is: " + message->text);
 }

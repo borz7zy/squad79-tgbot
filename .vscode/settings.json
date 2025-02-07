@@ -95,6 +95,7 @@
         "stack": "cpp",
         "regex": "cpp",
         "__availability": "cpp",
-        "__config": "cpp"
+        "__config": "cpp",
+        "filesystem": "cpp"
     }
 }

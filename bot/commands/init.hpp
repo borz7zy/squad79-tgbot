@@ -2,7 +2,7 @@
 
 #include "../core.hpp"
 #include "command.hpp"
-#include "../../database/dbcontroller.hpp"
+#include "../../database/sqlite_wrapper.hpp"
 
 class InitCmd : public Command, public Singleton<InitCmd>
 {
@@ -12,46 +12,58 @@ public:
         if (message->chat->type == TgBot::Chat::Type::Group || message->chat->type == TgBot::Chat::Type::Supergroup)
         {
             long long chat_id = message->chat->id;
-
-            std::string pattern = R"(chat::[-]?\d+::main)";
-            auto results = Database::Get()->searchKeys<int>(pattern);
-
-            std::regex chatIdRegex(R"(chat::(-?\d+)::main)");
-
-            for (const auto &[key, value] : results)
+            long long creator_id = 0;
+            std::vector<TgBot::ChatMember::Ptr> admins = Core::Get()->bot->getApi().getChatAdministrators(chat_id);
+            for (const auto &admin : admins)
             {
-
-                if (value)
+                if (admin->status == "creator")
                 {
-                    std::smatch match;
-                    if (std::regex_search(key, match, chatIdRegex) && match.size() > 1)
+                    creator_id = admin->user->id;
+                }
+            }
+            if (creator_id == 0)
+            {
+                rn;
+            }
+            bool inited = false;
+            auto result = SQLiteWrapper::Get()->retrieve("main_init.db", "mainchat:chat_id::int");
+            try
+            {
+                for (const auto &row : result["mainchat"])
+                {
+                    long long chat_id_db = std::stoll(row.at("chat_id"));
+                    if (chat_id_db == chat_id)
                     {
-                        long long extractedChatId = std::stoll(match.str(1));
-                        Logger::Get()->Log("%s %s", std::to_string(extractedChatId).c_str(), std::to_string(chat_id).c_str());
-                        if (extractedChatId == chat_id)
-                        {
-                            Core::Get()->bot->getApi().sendMessage(message->chat->id, "Бот уже был инициализирован здесь =)");
-                        }
-                        else
-                        {
-                            Core::Get()->bot->getApi().sendMessage(message->chat->id, "Бот уже был инициализирован в другом чате!\nБот может быть привязан только к одному чату =(");
-                        }
+                        Core::Get()->bot->getApi().sendMessage(message->chat->id, "Бот уже был инициализирован здесь =)");
+                        inited = true;
+                    }
+                    else
+                    {
+                        Core::Get()->bot->getApi().sendMessage(message->chat->id, "Бот уже был инициализирован в другом чате!\nБот может быть привязан только к одному чату =(");
+                        inited = true;
                     }
                     rn;
                 }
             }
-
-            std::vector<TgBot::ChatMember::Ptr> admins = Core::Get()->bot->getApi().getChatAdministrators(chat_id);
-            for (const auto &admin : admins)
+            catch (const std::out_of_range &e)
             {
-                if (admin->user->username != Core::Get()->bot->getApi().getMe()->username.c_str())
-                {
-                    std::string key = ("chat::" + std::to_string(chat_id) + "::admin::" + std::to_string(admin->user->id));
-                    Database::Get()->put(key, true);
-                }
-                Database::Get()->put(std::string("chat::" + std::to_string(chat_id) + "::main"), true);
+                Logger::Get()->Log("/init: Ошибка преобразования (out_of_range): %s", e.what());
             }
-            Core::Get()->bot->getApi().sendMessage(message->chat->id, "Чат был инициализирован!");
+            catch (const std::invalid_argument &e)
+            {
+                Logger::Get()->Log("/init: Ошибка преобразования (invalid_argument): %s", e.what());
+            }
+            catch (const std::exception &e)
+            {
+                Logger::Get()->Log("/init: Общая ошибка: %s", e.what());
+            }
+
+            if (inited == false)
+            {
+                SQLiteWrapper::Get()->add("main_init.db", {std::string("mainchat:chat_id:int:" + std::to_string(chat_id)),
+                                                           std::string("mainchat:creator_id:int:" + std::to_string(creator_id))});
+                Core::Get()->bot->getApi().sendMessage(chat_id, "Чат был инициализирован!");
+            }
         }
     }
 };

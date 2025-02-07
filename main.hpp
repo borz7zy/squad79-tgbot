@@ -19,6 +19,14 @@
 #include <chrono>
 #include <regex>
 #include <sstream>
+#include <concepts>
+#include <span>
+#include <ranges>
+#include <filesystem>
+#include <stdexcept>
+#include <iostream>
+#include <algorithm>
+#include <optional>
 #ifdef _WIN32
 #include <windows.h>
 #endif

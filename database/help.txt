@@ -1,0 +1,22 @@
+    try {
+        // Добавление данных
+        db.add("test.db", {"users:name:string:John", "users:age:int:30"});
+
+        // Извлечение данных
+        auto result = db.retrieve("test.db", "users:name,age");
+        for (const auto& row : result["users"]) {
+            std::cout << "Name: " << row.at("name") << ", Age: " << row.at("age") << std::endl;
+        }
+
+        // Обновление данных
+        db.update("test.db", "users:age:31");
+
+        // Удаление поля
+        db.remove("test.db", "delete_field:users:age");
+
+        // Удаление таблицы
+        db.remove("test.db", "delete_table:users");
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }

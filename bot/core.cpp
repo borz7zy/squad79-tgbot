@@ -2,7 +2,6 @@
 #include "../utils/logger.hpp"
 #include "./commands/commandHandlers.hpp"
 #include "../utils/memory.hpp"
-#include "../database/dbcontroller.hpp"
 #include "../utils/escapeMarkdownV2.hpp"
 
 Core::Core()

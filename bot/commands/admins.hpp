@@ -8,7 +8,7 @@
 class AdminsCmd : public Command, public Singleton<AdminsCmd>
 {
 public:
-    void execute(TgBot::Message::Ptr message) override
+    void execute(TgBot::Message::Ptr &message) override
     {
         try
         {

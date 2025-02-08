@@ -9,12 +9,8 @@ protected:
     static T *m_Instance;
 
 public:
-    Singleton()
-    {
-    }
-    virtual ~Singleton()
-    {
-    }
+    Singleton() = default;
+    virtual ~Singleton()= default;
 
     inline static T *Get()
     {

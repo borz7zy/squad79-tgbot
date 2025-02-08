@@ -168,7 +168,7 @@ private:
         }
     }
 
-    std::vector<std::tuple<std::string, std::string, std::string, std::string>> parseParam(const std::string &param)
+    static std::vector<std::tuple<std::string, std::string, std::string, std::string>> parseParam(const std::string &param)
     {
         std::vector<std::tuple<std::string, std::string, std::string, std::string>> results;
         auto entries = splitString(param, ",");
@@ -202,38 +202,6 @@ private:
             sqlite3_free(errMsg);
             throw std::runtime_error("SQL error: " + error);
         }
-    }
-
-    void addField(const std::string &table, const std::string &field, const std::string &type)
-    {
-        std::string sql = "ALTER TABLE " + table + " ADD COLUMN " + field + " " + getSqliteType(type);
-        char *errMsg = nullptr;
-        if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK)
-        {
-            if (std::string(errMsg).find("duplicate column name") == std::string::npos)
-            {
-                std::string error = errMsg;
-                sqlite3_free(errMsg);
-                throw std::runtime_error("SQL error: " + error);
-            }
-        }
-        sqlite3_free(errMsg);
-    }
-
-    void insertData(const std::string &table, const std::string &field, const std::string &value)
-    {
-        std::string sql = "INSERT INTO " + table + " (" + field + ") VALUES (?)";
-        sqlite3_stmt *stmt;
-        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
-        {
-            throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
-        }
-        sqlite3_bind_text(stmt, 1, value.c_str(), -1, SQLITE_STATIC);
-        if (sqlite3_step(stmt) != SQLITE_DONE)
-        {
-            throw std::runtime_error("Failed to execute statement: " + std::string(sqlite3_errmsg(db)));
-        }
-        sqlite3_finalize(stmt);
     }
 
     std::tuple<std::string, std::vector<std::pair<std::string, std::string>>> parseTableQuery(const std::string &query)
@@ -297,7 +265,7 @@ private:
     }
 
 
-    std::tuple<std::string, std::string, std::string> parseUpdateQuery(const std::string &query)
+    static std::tuple<std::string, std::string, std::string> parseUpdateQuery(const std::string &query)
     {
         auto parts = splitString(query, ":");
         if (parts.size() != 3)
@@ -335,7 +303,7 @@ private:
         }
     }
 
-    std::tuple<std::string, std::string> parseDeleteFieldQuery(const std::string &query)
+    static std::tuple<std::string, std::string> parseDeleteFieldQuery(const std::string &query)
     {
         auto parts = splitString(query, ":");
         if (parts.size() != 2)

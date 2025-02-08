@@ -8,7 +8,7 @@
 class InitCmd : public Command, public Singleton<InitCmd>
 {
 public:
-    void execute(TgBot::Message::Ptr message) override
+    void execute(TgBot::Message::Ptr &message) override
     {
         if (!message || !message->chat)
         {
@@ -52,7 +52,6 @@ public:
                 throw std::runtime_error("Не удалось получить экземпляр SQLiteWrapper");
             }
 
-            // Создаем таблицу, если она не существует, и обновляем схему
             db->execute("main_init.db",
                         "CREATE TABLE IF NOT EXISTS mainchat (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER, creator_id INTEGER)");
 
@@ -60,9 +59,8 @@ public:
             Logger::Get()->Log("/init: Таблица mainchat обновлена");
 #endif
 
-            // Проверяем структуру таблицы
-            auto tableInfo = db->getTableInfo("main_init.db", "mainchat");
 #ifdef DEBUG
+            auto tableInfo = db->getTableInfo("main_init.db", "mainchat");
             Logger::Get()->Log("/init: Структура таблицы mainchat:");
             for (const auto &column : tableInfo)
             {
@@ -70,7 +68,6 @@ public:
             }
 #endif
 
-            // Пробуем получить данные
             auto result = db->retrieve("main_init.db", "mainchat:chat_id::int,creator_id::int");
 
 #ifdef DEBUG

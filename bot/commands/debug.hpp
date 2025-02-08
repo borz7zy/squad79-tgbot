@@ -6,7 +6,7 @@
 class DebugCmd : public Command, public Singleton<DebugCmd>
 {
 public:
-    void execute(TgBot::Message::Ptr message) override
+    void execute(TgBot::Message::Ptr &message) override
     {
         bool dbgv = false;
         if (MemCache::Get()->getKeyValue("botDebug", dbgv)) {

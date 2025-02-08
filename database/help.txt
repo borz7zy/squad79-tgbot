@@ -1,6 +1,6 @@
     try {
         // Добавление данных
-        db.add("test.db", {"users:name:string:John", "users:age:int:30"});
+        db.add("test.db", {"users:name:string:John,age:int:30", "users:name:string:Steve,age:int:7"});
 
         // Извлечение данных
         auto result = db.retrieve("test.db", "users:name,age");

@@ -3,6 +3,7 @@
 #include "./commands/commandHandlers.hpp"
 #include "../utils/memory.hpp"
 #include "../utils/escapeMarkdownV2.hpp"
+#include "../database/sqlite_wrapper.hpp"
 
 Core::Core()
 {
@@ -16,13 +17,13 @@ Core::Core()
     std::string token(tokenEnv);
     bot = std::make_unique<TgBot::Bot>(token);
 
-    CommandManager::Get()->addCommand("start", startHandler, true, false);
-    CommandManager::Get()->addCommand("about", aboutHandler, true, false);
-    CommandManager::Get()->addCommand("debug", cmdDebugHandler, false, true);
-    CommandManager::Get()->addCommand("init", initHandler, false, true);
-    CommandManager::Get()->addCommand("permissions", permissionsHandler, false, false);
-    CommandManager::Get()->addCommand("admins", adminsHandler, false, false);
-    CommandManager::Get()->addCommand("inoagent", inoagentHandler, false, false);
+    CommandManager::Get()->addCommand("start", StartCmd::Get(), true, false);
+    CommandManager::Get()->addCommand("about", AboutCmd::Get(), true, false);
+    CommandManager::Get()->addCommand("debug", DebugCmd::Get(), false, true);
+    CommandManager::Get()->addCommand("init", InitCmd::Get(), false, true);
+    CommandManager::Get()->addCommand("permissions", PermissionsCmd::Get(), false, false);
+    CommandManager::Get()->addCommand("admins", AdminsCmd::Get(), false, false);
+    CommandManager::Get()->addCommand("inoagent", InoagentCmd::Get(), false, false);
 
     CommandManager::Get()->registerCommandsToBot(bot.get());
 
@@ -33,10 +34,6 @@ Core::Core()
     );
 
     Logger::Get()->Log("Bot %s started!", bot->getApi().getMe()->username.c_str());
-}
-
-Core::~Core()
-{
 }
 
 std::string Core::getCommandName(const std::string &input)
@@ -52,7 +49,7 @@ std::string Core::getCommandName(const std::string &input)
     }
 }
 
-void Core::removeSystemMessage(long long &chat_id, std::int32_t &message_id)
+void Core::removeSystemMessage(const long long &chat_id, const std::int32_t &message_id)
 {
     try
     {
@@ -63,6 +60,59 @@ void Core::removeSystemMessage(long long &chat_id, std::int32_t &message_id)
         bot->getApi().sendMessage(chat_id, "Ошибка удаления системного сообщения!"
                                            "\nВозможно у бота недостаточно привелегий =(");
         Logger::Get()->Log("Ошибка удаления системного сообщения! Недостаточно прав");
+    }
+}
+
+void Core::addNewMemberChatInDb(TgBot::Message::Ptr &message){
+
+    SQLiteWrapper::Get()->execute("chats.db",
+                                  "CREATE TABLE IF NOT EXISTS chat_members (id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                                  "chat_id INTEGER,"
+                                  "user_id INTEGER)");
+
+    if(message->from->id)
+    {
+        if (message->chat->type == TgBot::Chat::Type::Group ||
+            message->chat->type == TgBot::Chat::Type::Supergroup)
+        {
+            bool find = false;
+            auto result_cm = SQLiteWrapper::Get()->retrieve("chats.db", "chat_members:chat_id::int,user_id::int");
+            if (result_cm.find("chat_members") != result_cm.end() && !result_cm["chat_members"].empty())
+            {
+                for (const auto &row : result_cm["chat_members"])
+                {
+                    if (row.find("chat_id") != row.end() && row.find("user_id") != row.end())
+                    {
+                        long long userIdDb = std::stoll(row.at("user_id"));
+                        long long chatIdDb = std::stoll(row.at("chat_id"));
+                        if(userIdDb == message->from->id && chatIdDb == message->chat->id){
+                            find = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if(!find){
+                SQLiteWrapper::Get()->add("chats.db", {
+                        "chat_members:chat_id:int:" + std::to_string(message->chat->id) +
+                        ",chat_members:user_id:int:" + std::to_string(message->from->id)});
+            }
+        }
+    }
+}
+
+void Core::getChatMembers(const long long &chat_id, std::vector<std::int32_t> &members)
+{
+    auto result_cm = SQLiteWrapper::Get()->retrieve("chats.db", "chat_members:chat_id::int,user_id::int");
+    if (result_cm.find("chat_members") != result_cm.end() && !result_cm["chat_members"].empty()) {
+        for (const auto &row: result_cm["chat_members"]) {
+            if (row.find("chat_id") != row.end() && row.find("user_id") != row.end()) {
+                long long chatIdDb = std::stoll(row.at("chat_id"));
+                if(chatIdDb == chat_id){
+                    members.push_back(std::stoi(row.at("user_id")));
+                }
+            }
+        }
     }
 }
 
@@ -86,6 +136,8 @@ void Core::onAnyMessage(TgBot::Message::Ptr &message)
     }
     if(message->chat->id != main_chat_id)
         rn;
+
+    addNewMemberChatInDb(message);
 
     std::string response;
     if (!message->newChatTitle.empty())
@@ -127,6 +179,7 @@ void Core::onAnyMessage(TgBot::Message::Ptr &message)
     }
     else if (!message->newChatMembers.empty())
     {
+        addNewMemberChatInDb(message);
         response = "Добавлен новый участник: ";
         removeSystemMessage(message->chat->id, message->messageId);
         for (const auto &member : message->newChatMembers)
@@ -183,37 +236,37 @@ void Core::onAnyMessage(TgBot::Message::Ptr &message)
         Logger::Get()->Log(response.c_str());
     }
 
-    if (message->text.length() <= 0)
+    if (message->text.empty())
         rn;
 
     bool dbgv = false;
     MemCache::Get()->getKeyValue("botDebug", dbgv);
 
-    std::string chat_type = "";
+    std::string chat_type;
     if (dbgv)
     {
         switch (message->chat->type)
         { // Private, Group, Supergroup, Channel
-        case TgBot::Chat::Type::Private:
-        {
-            chat_type = "Личка";
-            break;
-        }
-        case TgBot::Chat::Type::Group:
-        {
-            chat_type = "Чат";
-            break;
-        }
-        case TgBot::Chat::Type::Supergroup:
-        {
-            chat_type = "Суперчат";
-            break;
-        }
-        case TgBot::Chat::Type::Channel:
-        {
-            chat_type = "Канал";
-            break;
-        }
+            case TgBot::Chat::Type::Private:
+            {
+                chat_type = "Личка";
+                break;
+            }
+            case TgBot::Chat::Type::Group:
+            {
+                chat_type = "Чат";
+                break;
+            }
+            case TgBot::Chat::Type::Supergroup:
+            {
+                chat_type = "Суперчат";
+                break;
+            }
+            case TgBot::Chat::Type::Channel:
+            {
+                chat_type = "Канал";
+                break;
+            }
         }
     }
     if (CommandManager::Get()->commandExists(getCommandName(message->text)))

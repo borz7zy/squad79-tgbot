@@ -32,7 +32,7 @@ public:
         return ss.str();
     }
 
-    void execute(TgBot::Message::Ptr message) override
+    void execute(TgBot::Message::Ptr &message) override
     {
         try
         {

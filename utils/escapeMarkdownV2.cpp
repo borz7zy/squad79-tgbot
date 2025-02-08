@@ -3,7 +3,7 @@
 std::string escapeMarkdownV2(const std::string &input)
 {
     std::string result = input;
-    std::vector<char> specialChars = {'\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '.', '|'};
+    std::vector<char> specialChars = {'\\', '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '.', '|', '!'};
 
     for (const char special : specialChars)
     {

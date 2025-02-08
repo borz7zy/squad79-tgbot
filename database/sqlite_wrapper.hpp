@@ -12,7 +12,46 @@ public:
         if (db)
         {
             sqlite3_close(db);
+            db = nullptr;
         }
+    }
+
+    std::vector<std::pair<std::string, std::string>> getTableInfo(const std::string &dbName, const std::string &tableName)
+    {
+        openDatabase(dbName);
+        std::vector<std::pair<std::string, std::string>> tableInfo;
+        std::string sql = "PRAGMA table_info(" + tableName + ")";
+        sqlite3_stmt *stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+        {
+            throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
+        }
+        while (sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            std::string columnName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+            std::string columnType = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+            tableInfo.emplace_back(columnName, columnType);
+        }
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        db = nullptr;
+        return tableInfo;
+    }
+
+    void execute(const std::string &dbName, const std::string &sql)
+    {
+        openDatabase(dbName);
+        char *errMsg = nullptr;
+        if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK)
+        {
+            std::string error = errMsg;
+            sqlite3_free(errMsg);
+            sqlite3_close(db);
+            db = nullptr;
+            throw std::runtime_error("SQL error: " + error);
+        }
+        sqlite3_close(db);
+        db = nullptr;
     }
 
     void add(const std::string &dbName, const std::vector<std::string> &params)
@@ -36,6 +75,8 @@ public:
             auto [table, field, type, value] = parseParam(param);
             insertData(table, field, value);
         }
+        sqlite3_close(db);
+        db = nullptr;
     }
 
     std::unordered_map<std::string, std::vector<std::unordered_map<std::string, std::string>>>
@@ -43,13 +84,24 @@ public:
     {
         openDatabase(dbName);
         std::unordered_map<std::string, std::vector<std::unordered_map<std::string, std::string>>> result;
-        auto tables = splitString(query, "|");
-        for (const auto &table : tables)
+        try
         {
-            auto [tableName, fieldsWithTypes] = parseTableQuery(table);
-            createTableIfNotExists(tableName, fieldsWithTypes);
-            result[tableName] = retrieveData(tableName, fieldsWithTypes);
+            auto tables = splitString(query, "|");
+            for (const auto &table : tables)
+            {
+                auto [tableName, fieldsWithTypes] = parseTableQuery(table);
+                createTableIfNotExists(tableName, fieldsWithTypes);
+                result[tableName] = retrieveData(tableName, fieldsWithTypes);
+            }
         }
+        catch (...)
+        {
+            sqlite3_close(db);
+            db = nullptr;
+            throw;
+        }
+        sqlite3_close(db);
+        db = nullptr;
         return result;
     }
 
@@ -75,6 +127,8 @@ public:
             auto [table, field, value] = parseUpdateQuery(update);
             updateData(table, field, value);
         }
+        sqlite3_close(db);
+        db = nullptr;
     }
 
     void remove(const std::string &dbName, const std::string &query)
@@ -94,6 +148,8 @@ public:
                 deleteField(table, field);
             }
         }
+        sqlite3_close(db);
+        db = nullptr;
     }
 
 private:
@@ -191,32 +247,41 @@ private:
         return {tableName, fieldsWithTypes};
     }
 
-    std::vector<std::unordered_map<std::string, std::string>> retrieveData(const std::string &table, const std::vector<std::pair<std::string, std::string>> &fieldsWithTypes)
+    std::vector<std::unordered_map<std::string, std::string>> retrieveData(
+            const std::string &table,
+            const std::vector<std::pair<std::string, std::string>> &fieldsWithTypes)
     {
         std::vector<std::string> fields;
         for (const auto &[field, _] : fieldsWithTypes)
         {
             fields.push_back(field);
         }
+
         std::string sql = "SELECT " + join(fields, ", ") + " FROM " + table;
-        sqlite3_stmt *stmt;
+        sqlite3_stmt *stmt = nullptr;
+
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
         {
             throw std::runtime_error("Failed to prepare statement: " + std::string(sqlite3_errmsg(db)));
         }
+
         std::vector<std::unordered_map<std::string, std::string>> result;
+
         while (sqlite3_step(stmt) == SQLITE_ROW)
         {
             std::unordered_map<std::string, std::string> row;
-            for (int i = 0; i < fields.size(); ++i)
+            for (int i = 0; i < static_cast<int>(fields.size()); ++i)
             {
-                row[fields[i]] = reinterpret_cast<const char *>(sqlite3_column_text(stmt, i));
+                const char *value = reinterpret_cast<const char *>(sqlite3_column_text(stmt, i));
+                row[fields[i]] = value ? value : "";
             }
             result.push_back(row);
         }
+
         sqlite3_finalize(stmt);
         return result;
     }
+
 
     std::tuple<std::string, std::string, std::string> parseUpdateQuery(const std::string &query)
     {

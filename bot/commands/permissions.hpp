@@ -34,25 +34,22 @@ public:
 
     void execute(TgBot::Message::Ptr message) override
     {
-        if (message->chat->type == TgBot::Chat::Type::Group || message->chat->type == TgBot::Chat::Type::Supergroup)
+        try
         {
-            try
+            TgBot::ChatMember::Ptr chatMember = Core::Get()->bot->getApi().getChatMember(message->chat->id, message->from->id);
+            if (!chatMember)
             {
-                TgBot::ChatMember::Ptr chatMember = Core::Get()->bot->getApi().getChatMember(message->chat->id, message->from->id);
-                if (!chatMember)
-                {
-                    Core::Get()->bot->getApi().sendMessage(message->chat->id, "Не удалось получить информацию о правах пользователя.");
-                    rn;
-                }
+                Core::Get()->bot->getApi().sendMessage(message->chat->id, "Не удалось получить информацию о правах пользователя.");
+                rn;
+            }
 
-                std::string statusText = getUserStatusText(chatMember);
-                Core::Get()->bot->getApi().sendMessage(message->chat->id, statusText);
-            }
-            catch (TgBot::TgException &e)
-            {
-                Logger::Get()->Log("/permissions: Ошибка получения прав: %s", std::string(e.what()).c_str());
-                Core::Get()->bot->getApi().sendMessage(message->chat->id, "Ошибка при получении статуса пользователя.");
-            }
+            std::string statusText = getUserStatusText(chatMember);
+            Core::Get()->bot->getApi().sendMessage(message->chat->id, statusText);
+        }
+        catch (TgBot::TgException &e)
+        {
+            Logger::Get()->Log("/permissions: Ошибка получения прав: %s", std::string(e.what()).c_str());
+            Core::Get()->bot->getApi().sendMessage(message->chat->id, "Ошибка при получении статуса пользователя.");
         }
     }
 };

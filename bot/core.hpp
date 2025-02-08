@@ -5,8 +5,8 @@
 class Core : public Singleton<Core>
 {
 private:
-    void removeSystemMessage(long long chat_id, long long message_id);
-    void onAnyMessage(TgBot::Message::Ptr message);
+    void removeSystemMessage(long long &chat_id, std::int32_t &message_id);
+    void onAnyMessage(TgBot::Message::Ptr &message);
 
     std::string getCommandName(const std::string &input);
 

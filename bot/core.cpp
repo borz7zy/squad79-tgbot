@@ -16,17 +16,21 @@ Core::Core()
     std::string token(tokenEnv);
     bot = std::make_unique<TgBot::Bot>(token);
 
-    CommandManager::Get()->addCommand("start", startHandler);
-    CommandManager::Get()->addCommand("about", aboutHandler);
-    CommandManager::Get()->addCommand("debug", cmdDebugHandler);
-    CommandManager::Get()->addCommand("init", initHandler);
-    CommandManager::Get()->addCommand("permissions", permissionsHandler);
-    CommandManager::Get()->addCommand("admins", adminsHandler);
+    CommandManager::Get()->addCommand("start", startHandler, true, false);
+    CommandManager::Get()->addCommand("about", aboutHandler, true, false);
+    CommandManager::Get()->addCommand("debug", cmdDebugHandler, false, true);
+    CommandManager::Get()->addCommand("init", initHandler, false, true);
+    CommandManager::Get()->addCommand("permissions", permissionsHandler, false, false);
+    CommandManager::Get()->addCommand("admins", adminsHandler, false, false);
+    CommandManager::Get()->addCommand("inoagent", inoagentHandler, false, false);
 
     CommandManager::Get()->registerCommandsToBot(bot.get());
 
     bot->getEvents().onAnyMessage([this](TgBot::Message::Ptr message)
-                                  { onAnyMessage(message); });
+        {
+            onAnyMessage(message);
+        }
+    );
 
     Logger::Get()->Log("Bot %s started!", bot->getApi().getMe()->username.c_str());
 }
@@ -48,7 +52,7 @@ std::string Core::getCommandName(const std::string &input)
     }
 }
 
-void Core::removeSystemMessage(long long chat_id, long long message_id)
+void Core::removeSystemMessage(long long &chat_id, std::int32_t &message_id)
 {
     try
     {
@@ -56,13 +60,33 @@ void Core::removeSystemMessage(long long chat_id, long long message_id)
     }
     catch (TgBot::TgException &e)
     {
-        bot->getApi().sendMessage(chat_id, "Ошибка удаления системного сообщения!\nВозможно у бота недостаточно привелегий =(");
+        bot->getApi().sendMessage(chat_id, "Ошибка удаления системного сообщения!"
+                                           "\nВозможно у бота недостаточно привелегий =(");
         Logger::Get()->Log("Ошибка удаления системного сообщения! Недостаточно прав");
     }
 }
 
-void Core::onAnyMessage(TgBot::Message::Ptr message)
+void Core::onAnyMessage(TgBot::Message::Ptr &message)
 {
+    long long main_chat_id = 0;
+    auto result = SQLiteWrapper::Get()->retrieve(
+            "main_init.db", "mainchat:chat_id::int");
+
+    if (result.find("mainchat") != result.end() && !result["mainchat"].empty())
+    {
+        for (const auto &row : result["mainchat"])
+        {
+            if (row.find("chat_id") != row.end())
+            {
+                main_chat_id = std::stoll(row.at("chat_id"));
+                break;
+            }else
+                continue;
+        }
+    }
+    if(message->chat->id != main_chat_id)
+        rn;
+
     std::string response;
     if (!message->newChatTitle.empty())
     {
@@ -131,11 +155,16 @@ void Core::onAnyMessage(TgBot::Message::Ptr message)
 
                 std::ostringstream ss;
                 ss << "Пользователь ";
-                ss << "[" << escapeMarkdownV2(member->firstName) << "](tg://user?id=" + std::to_string(member->id) + ")";
-                ss << escapeMarkdownV2(" присоединился и автоматически был ограничен в возможностях отправки сообщений.");
-                bot->getApi().sendMessage(message->chat->id, ss.str(), nullptr, nullptr, nullptr, "MarkdownV2", true);
+                ss << "[" << escapeMarkdownV2(member->firstName) <<
+                "](tg://user?id=" + std::to_string(member->id) + ")";
+                ss << escapeMarkdownV2(" присоединился и автоматически был ограничен "
+                                       "в возможностях отправки сообщений.");
+                bot->getApi().sendMessage(message->chat->id, ss.str(),
+                                          nullptr, nullptr, nullptr,
+                                          "MarkdownV2", true);
 
-                Logger::Get()->Log("Новый пользователь был ограничен на сообщения: %s", std::to_string(member->id).c_str());
+                Logger::Get()->Log("Новый пользователь был ограничен на сообщения: %s",
+                                   std::to_string(member->id).c_str());
             }
             catch (TgBot::TgException &e)
             {
@@ -194,7 +223,9 @@ void Core::onAnyMessage(TgBot::Message::Ptr message)
             if (message->chat->type != TgBot::Chat::Type::Channel)
             {
                 Logger::Get()->Log("User %s use command: %s", message->from->username.c_str(), message->text.c_str());
-                bot->getApi().sendMessage(message->chat->id, "Юзер @" + message->from->username + "( " + std::to_string(message->from->id) + " ) ввел команду /" + getCommandName(message->text) + " , тип чата: " + chat_type + ".");
+                bot->getApi().sendMessage(message->chat->id, "Юзер @" + message->from->username + "( " +
+                std::to_string(message->from->id) + " ) ввел команду /" + getCommandName(message->text) +
+                " , тип чата: " + chat_type + ".");
             }
         }
         rn;
@@ -205,7 +236,10 @@ void Core::onAnyMessage(TgBot::Message::Ptr message)
         {
             Logger::Get()->Log("User %s send text: %s", message->from->username.c_str(), message->text.c_str());
             bot->getApi().sendMessage(message->chat->id,
-                                      "Юзер @" + message->from->username + "( " + std::to_string(message->from->id) + " ) отправил сообщение в чате " + std::to_string(message->chat->id) + ", тип чата: " + chat_type + ". Сообщение:\n\n" + message->text);
+                                      "Юзер @" + message->from->username + "( " +
+                                      std::to_string(message->from->id) + " ) отправил сообщение в чате " +
+                                      std::to_string(message->chat->id) + ", тип чата: " + chat_type +
+                                      ". Сообщение:\n\n" + message->text);
         }
     }
 }

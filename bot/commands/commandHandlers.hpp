@@ -6,6 +6,7 @@
 #include "init.hpp"
 #include "permissions.hpp"
 #include "admins.hpp"
+#include "inoagent.h"
 
 void startHandler(TgBot::Message::Ptr message)
 {
@@ -35,4 +36,9 @@ void permissionsHandler(TgBot::Message::Ptr message)
 void adminsHandler(TgBot::Message::Ptr message)
 {
     AdminsCmd::Get()->execute(message);
+}
+
+void inoagentHandler(TgBot::Message::Ptr message)
+{
+    InoagentCmd::Get()->execute(message);
 }

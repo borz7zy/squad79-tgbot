@@ -58,11 +58,15 @@ public:
     {
         openDatabase(dbName);
         std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> tableFields;
+        std::unordered_map<std::string, std::vector<std::pair<std::string, std::string>>> insertDataBatch;
 
         for (const auto &param : params)
         {
-            auto [table, field, type, value] = parseParam(param);
-            tableFields[table].emplace_back(field, type);
+            for (const auto &[table, field, type, value] : parseParam(param))
+            {
+                tableFields[table].emplace_back(field, type);
+                insertDataBatch[table].emplace_back(field, value);
+            }
         }
 
         for (const auto &[table, fields] : tableFields)
@@ -70,14 +74,15 @@ public:
             createTableIfNotExists(table, fields);
         }
 
-        for (const auto &param : params)
+        for (const auto &[table, data] : insertDataBatch)
         {
-            auto [table, field, type, value] = parseParam(param);
-            insertData(table, field, value);
+            batchInsertData(table, data);
         }
+
         sqlite3_close(db);
         db = nullptr;
     }
+
 
     std::unordered_map<std::string, std::vector<std::unordered_map<std::string, std::string>>>
     retrieve(const std::string &dbName, const std::string &query)
@@ -163,15 +168,24 @@ private:
         }
     }
 
-    std::tuple<std::string, std::string, std::string, std::string> parseParam(const std::string &param)
+    std::vector<std::tuple<std::string, std::string, std::string, std::string>> parseParam(const std::string &param)
     {
-        auto parts = splitString(param, ":");
-        if (parts.size() != 4)
+        std::vector<std::tuple<std::string, std::string, std::string, std::string>> results;
+        auto entries = splitString(param, ",");
+
+        for (const auto &entry : entries)
         {
-            throw std::invalid_argument("Invalid parameter format");
+            auto parts = splitString(entry, ":");
+            if (parts.size() != 4)
+            {
+                throw std::invalid_argument("Invalid parameter format: " + entry);
+            }
+            results.emplace_back(parts[0], parts[1], parts[2], parts[3]);
         }
-        return {parts[0], parts[1], parts[2], parts[3]};
+
+        return results;
     }
+
 
     void createTableIfNotExists(const std::string &table, const std::vector<std::pair<std::string, std::string>> &fieldsWithTypes)
     {
@@ -427,4 +441,34 @@ private:
             return "TEXT";
         }
     }
+
+    void batchInsertData(const std::string &table, const std::vector<std::pair<std::string, std::string>> &data)
+    {
+        if (data.empty()) return;
+
+        std::vector<std::string> fields;
+        std::vector<std::string> values;
+
+        for (const auto &[field, value] : data)
+        {
+            fields.push_back(field);
+            values.push_back("'" + value + "'");
+        }
+
+        std::string sql = "INSERT INTO " + table + " (" + join(fields, ", ") + ") VALUES (" + join(values, ", ") + ")";
+
+        sqlite3_stmt *stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+        {
+            throw std::runtime_error("Failed to prepare batch insert: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        if (sqlite3_step(stmt) != SQLITE_DONE)
+        {
+            throw std::runtime_error("Failed to execute batch insert: " + std::string(sqlite3_errmsg(db)));
+        }
+
+        sqlite3_finalize(stmt);
+    }
+
 };

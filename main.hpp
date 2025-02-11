@@ -28,6 +28,10 @@
 #include <algorithm>
 #include <optional>
 #include <utility>
+#include <random>
+#include <format>
+#include <string_view>
+#include <deque>
 #ifdef _WIN32
 #include <windows.h>
 #endif

@@ -1,6 +1,10 @@
 #pragma once
 
 #include "../main.hpp"
+#include "./mini_ai/helper.h"
+#include "./mini_ai/answer_database.h"
+
+static constexpr size_t MAX_HISTORY_MESSAGES_SIZE = 50;
 
 class Core : public Singleton<Core>
 {
@@ -10,6 +14,10 @@ private:
     void addNewMemberChatInDb(TgBot::Message::Ptr &message);
 
     std::string getCommandName(const std::string &input);
+
+    static std::string getTrollDoxStr(const unsigned short int i, const TgBot::InlineQuery::Ptr &query);
+
+    std::deque<Message> message_history;
 
 public:
     Core();

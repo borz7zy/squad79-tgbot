@@ -4,6 +4,8 @@
 #include "../utils/memory.hpp"
 #include "../utils/escapeMarkdownV2.hpp"
 #include "../database/sqlite_wrapper.hpp"
+#include "./mini_ai/helper.h"
+#include "./mini_ai/answer_database.h"
 
 Core::Core()
 {
@@ -17,6 +19,33 @@ Core::Core()
     std::string token(tokenEnv);
     bot = std::make_unique<TgBot::Bot>(token);
 
+    bot->getEvents().onInlineQuery([this](TgBot::InlineQuery::Ptr query){
+        std::vector<TgBot::InlineQueryResult::Ptr> results;
+
+        auto result = std::make_shared<TgBot::InlineQueryResultArticle>();
+        result->id = "1";
+
+        if(query->query.empty())
+            result->title = "Напиши ник пользователя которого будем доксить";
+        else
+            result->title = std::format("Ник пользователя для докса: {}", query->query);
+
+        auto messageContent = std::make_shared<TgBot::InputTextMessageContent>();
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<unsigned short> dist(0, 12);
+
+        unsigned short int random_number = dist(gen);
+
+        messageContent->messageText = getTrollDoxStr(random_number, query);
+
+        result->inputMessageContent = messageContent;
+        results.push_back(result);
+
+        bot->getApi().answerInlineQuery(query->id, results, 0);
+    });
+
     CommandManager::Get()->addCommand("start", StartCmd::Get(), true, false);
     CommandManager::Get()->addCommand("about", AboutCmd::Get(), true, false);
     CommandManager::Get()->addCommand("debug", DebugCmd::Get(), false, true);
@@ -24,6 +53,7 @@ Core::Core()
     CommandManager::Get()->addCommand("permissions", PermissionsCmd::Get(), false, false);
     CommandManager::Get()->addCommand("admins", AdminsCmd::Get(), false, false);
     CommandManager::Get()->addCommand("inoagent", InoagentCmd::Get(), false, false);
+    CommandManager::Get()->addCommand("inlinehelp", InlinehelpCmd::Get(), true, false);
 
     CommandManager::Get()->registerCommandsToBot(bot.get());
 
@@ -34,6 +64,75 @@ Core::Core()
     );
 
     Logger::Get()->Log("Bot %s started!", bot->getApi().getMe()->username.c_str());
+}
+
+std::string Core::getTrollDoxStr(const unsigned short int i, const TgBot::InlineQuery::Ptr &query)
+{
+    std::string troll_dox_str;
+
+    if(i < 0 || i > 12)
+        rn std::string("0xFFCCFD");
+
+    switch(i){
+        case 0:{
+            troll_dox_str = std::string("Хэй, чел... Не надо!");
+            break;
+        }
+        case 1:{
+            troll_dox_str = std::string("Прекрати!");
+            break;
+        }
+        case 2:{
+            troll_dox_str = std::string("Ты че крыса, мы можем тебя быстро поймать!");
+            break;
+        }
+        case 4:{
+            troll_dox_str = std::string("Не вынуждай меня делать плохие вещи!");
+            break;
+        }
+        case 6:{
+            troll_dox_str = std::string("Может ты прекратишь?");
+            break;
+        }
+        case 8:{
+            troll_dox_str = std::string("Прекращай заниматься фигнёй!!!");
+            break;
+        }
+        case 10:{
+            troll_dox_str = std::string("Прекращай!!!!");
+            break;
+        }
+        case 12:{
+            troll_dox_str = std::string("Ты меня разозлил, жди наряд около дома!");
+            break;
+        }
+    }
+    if ((i) == 3) {
+        if(query->from->username.empty()){
+            rn getTrollDoxStr(7, query);
+        }
+        rn std::format("Я уже знаю твой юзернейм, @{}.", (!query->from->username.empty()) ? query->from->username : "");
+    }
+    else if ((i) == 5) {
+        rn std::format("Я уже нашёл твой ID: {} =)", query->from->id);
+    }
+    else if ((i) == 7) {
+        rn std::format("Твое имя {} {}, остановись!",
+                                    (!query->from->firstName.empty()) ? query->from->firstName : "",
+                                    (!query->from->lastName.empty()) ? query->from->lastName : "");
+    }
+    else if (i == 9) {
+        rn std::format("Твой язык {}, думаю дальше мне не следует говорить о том, что может с тобой произойти!",
+                                    (!query->from->languageCode.empty()) ? query->from->languageCode : "");
+    }
+    else if ((i) == 11) {
+        rn std::format("Даю последний шанс исправиться, {} {}!",
+                           (!query->from->firstName.empty()) ? query->from->firstName : "",
+                           (!query->from->lastName.empty()) ? query->from->lastName : "");
+    }
+    else {
+        rn troll_dox_str;
+    }
 }
 
 std::string Core::getCommandName(const std::string &input)
@@ -109,7 +208,7 @@ void Core::getChatMembers(const long long &chat_id, std::vector<std::int32_t> &m
             if (row.find("chat_id") != row.end() && row.find("user_id") != row.end()) {
                 long long chatIdDb = std::stoll(row.at("chat_id"));
                 if(chatIdDb == chat_id){
-                    members.push_back(std::stoi(row.at("user_id")));
+                    members.push_back(static_cast<std::int64_t>(std::stoull(row.at("user_id"))));
                 }
             }
         }
@@ -239,6 +338,26 @@ void Core::onAnyMessage(TgBot::Message::Ptr &message)
     if (message->text.empty())
         rn;
 
+
+    const std::string bot_tag = "@" + bot->getApi().getMe()->username + " ";
+    Message mess;
+    if (message->text.starts_with(bot_tag)) {
+        mess.text = message->text;
+        mess.text = mess.text.substr(bot_tag.size());
+    }
+    if(!mess.text.empty()){
+        message_history.push_back(mess);
+        if (message_history.size() > MAX_HISTORY_MESSAGES_SIZE) {
+            message_history.pop_front();
+        }
+
+        std::vector<Message> context(message_history.begin(), message_history.end());
+        context.pop_back();
+
+        Answer ans = AnswerDatabase::Get()->find_best_match(mess, context);
+        bot->getApi().sendMessage(message->chat->id, ans.text);
+    }
+
     bool dbgv = false;
     MemCache::Get()->getKeyValue("botDebug", dbgv);
 
@@ -276,9 +395,9 @@ void Core::onAnyMessage(TgBot::Message::Ptr &message)
             if (message->chat->type != TgBot::Chat::Type::Channel)
             {
                 Logger::Get()->Log("User %s use command: %s", message->from->username.c_str(), message->text.c_str());
-                bot->getApi().sendMessage(message->chat->id, "Юзер @" + message->from->username + "( " +
+                bot->getApi().sendMessage(message->chat->id, escapeMarkdownV2("Юзер @" + message->from->username + "( " +
                 std::to_string(message->from->id) + " ) ввел команду /" + getCommandName(message->text) +
-                " , тип чата: " + chat_type + ".");
+                " , тип чата: " + chat_type + "."), nullptr, nullptr, nullptr, "MarkdownV2", true);
             }
         }
         rn;
@@ -289,10 +408,10 @@ void Core::onAnyMessage(TgBot::Message::Ptr &message)
         {
             Logger::Get()->Log("User %s send text: %s", message->from->username.c_str(), message->text.c_str());
             bot->getApi().sendMessage(message->chat->id,
-                                      "Юзер @" + message->from->username + "( " +
+                                      escapeMarkdownV2("Юзер @" + message->from->username + "( " +
                                       std::to_string(message->from->id) + " ) отправил сообщение в чате " +
                                       std::to_string(message->chat->id) + ", тип чата: " + chat_type +
-                                      ". Сообщение:\n\n" + message->text);
+                                      ". Сообщение:\n\n" + message->text), nullptr, nullptr, nullptr, "MarkdownV2", true);
         }
     }
 }

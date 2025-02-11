@@ -12,6 +12,8 @@ add_library(sqlite3 STATIC ${SQLITE3_SRCS})
 target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/sqlite3)
 
 set(PROJECT_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/jaro_winkler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/bot/mini_ai/answer_database.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/escapeMarkdownV2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/bot/core.cpp

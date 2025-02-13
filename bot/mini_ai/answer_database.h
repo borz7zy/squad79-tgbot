@@ -7,7 +7,7 @@
 #include "../../utils/logger.hpp"
 #include "../../singletone.hpp"
 #include "helper.h"
-#include "../../utils/jaro_winkler.h"
+//#include "../../utils/jaro_winkler.h"
 
 class AnswerDatabase : public Singleton<AnswerDatabase>
 {
@@ -20,7 +20,7 @@ public:
     AnswerDatabase(AnswerDatabase&&) = delete;
     AnswerDatabase& operator=(AnswerDatabase&&) = delete;
 
-    [[nodiscard]] Answer find_best_match(const Message &message, const std::vector<Message>& context) const noexcept;
+    [[nodiscard]] Answer find_best_match(const Message &message) const noexcept;
     void add_answer(std::string_view question, const Answer& answer, double heat_level);
 
 private:
@@ -30,4 +30,11 @@ private:
 
     const std::string filename_ = "mini_ai_db.txt";
     std::vector<AnswerRecord> answers_;
+
+    struct AnswerCandidate {
+        const Answer* answer;
+        double similarity;
+
+        AnswerCandidate(const Answer* ans, double sim) : answer(ans), similarity(sim) {}
+    };
 };

@@ -3,6 +3,7 @@
 //
 
 #include "answer_database.h"
+#include "../../utils/original_jaro_winkler.h"
 
 namespace fs = std::filesystem;
 
@@ -10,39 +11,24 @@ AnswerDatabase::AnswerDatabase() noexcept {
     load_from_file();
 }
 
-[[nodiscard]] Answer AnswerDatabase::find_best_match(const Message &message, const std::vector<Message>& context) const noexcept {
-    constexpr double threshold = 0.85;
-    constexpr size_t top_n = 5;
-    constexpr size_t context_size = 3;
-    constexpr double context_weight = 0.2;
-    constexpr double cooldown_factor = 0.8;
-    constexpr std::chrono::minutes cooldown_time(5);
+[[nodiscard]] Answer AnswerDatabase::find_best_match(const Message &message) const noexcept {
+    constexpr double threshold = 0.7;
+    constexpr size_t top_n = 20;
 
-    std::vector<std::pair<double, const Answer*>> candidates;
+//    std::vector<std::pair<double, const Answer*>> candidates;
+    std::vector<AnswerCandidate> candidates;
     candidates.reserve(answers_.size());
 
-    auto now = std::chrono::steady_clock::now();
+    double maxSimilarity = 0.0;
 
     for (const auto& record : answers_) {
-        double distance = JaroWinkler::Get()->jaro_winkler_distance(message.text, record.question, 0.1);
-
-        // Учитываем контекст
-        double context_score = 0.0;
-        for (size_t i = 0; i < std::min(context.size(), context_size); ++i) {
-            context_score += JaroWinkler::Get()->jaro_winkler_distance(context[context.size() - 1 - i].text, record.question, 0.1) * std::pow(0.5, i);
-        }
-        distance += context_weight * context_score / std::min(context.size(), context_size);
+        double distance = JaroWinkler::Get()->similarity(message.text, record.question);
 
         if (distance >= threshold) {
-            double score = distance * record.heat;
-
-            // Применяем "охлаждение"
-            auto time_since_last_use = std::chrono::duration_cast<std::chrono::minutes>(now - record.last_used);
-            if (time_since_last_use < cooldown_time) {
-                score *= std::pow(cooldown_factor, 1.0 - static_cast<double>(time_since_last_use.count()) / cooldown_time.count());
-            }
-
-            candidates.emplace_back(score, &record.answer);
+//            double score = distance * record.heat;
+//            candidates.emplace_back(score, &record.answer);
+            candidates.emplace_back(&record.answer, distance);
+            maxSimilarity = std::max(maxSimilarity, distance);
         }
     }
 
@@ -50,37 +36,55 @@ AnswerDatabase::AnswerDatabase() noexcept {
         return {"Извини, я не понял тебя!"};
     }
 
-    // Сортируем кандидатов по убыванию score
-    std::sort(candidates.begin(), candidates.end(),
-              [](const auto& a, const auto& b) { return a.first > b.first; });
+//    std::sort(candidates.begin(), candidates.end(),
+//              [](const auto& a, const auto& b) { return a.first > b.first; });
 
-    // Оставляем только top_n кандидатов
-    candidates.resize(std::min(candidates.size(), top_n));
-
-    // Взвешенный случайный выбор
-    std::vector<double> weights;
-    weights.reserve(candidates.size());
-    for (const auto& candidate : candidates) {
-        weights.push_back(candidate.first);
+    std::vector<AnswerCandidate> theBest;
+    for(const auto& candidate : candidates) {
+        if(candidate.similarity == maxSimilarity) {
+            theBest.push_back(candidate);
+        }
     }
+
+//    candidates.resize(std::min(candidates.size(), top_n));
+
+//    std::vector<double> weights;
+//    weights.reserve(candidates.size());
+//    for (const auto& candidate : candidates) {
+//        weights.push_back(candidate.first);
+//    }
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::discrete_distribution<> d(weights.begin(), weights.end());
 
-    const Answer* best_answer = candidates[d(gen)].second;
+//    std::discrete_distribution<> d(weights.begin(), weights.end());
+    const Answer* best_answer;
 
-    // Обновляем время последнего использования
-    for (auto& record : answers_) {
-        if (&record.answer == best_answer) {
-            record.last_used = now;
-            break;
-        }
+//    const Answer* best_answer = candidates[d(gen)].second;
+
+    if(theBest.size() == 1)
+        best_answer = theBest[0].answer;
+    else{
+        std::uniform_int_distribution<> distrib(0, theBest.size() - 1);
+        best_answer = theBest[distrib(gen)].answer;
     }
 
 #ifdef DEBUG
     Logger::Get()->Log("Лучший ответ найден: %s", best_answer->text.c_str());
 #endif
+
+    const AnswerRecord* best_answer_record = nullptr;
+    for (const auto& record : answers_) {
+        if (&record.answer == best_answer) {
+            best_answer_record = &record;
+            break;
+        }
+    }
+
+    if (best_answer_record) {
+        std::cout << "Вопрос: " << best_answer_record->question << std::endl;
+        std::cout << "Ответ: " << best_answer->text << std::endl;
+    }
 
     return *best_answer;
 }

@@ -58,7 +58,7 @@ public:
             }
         }
 
-        std::vector<std::int32_t> members;
+        std::vector<std::int64_t> members;
         Core::Get()->getChatMembers(message->chat->id, members);
 
         if (members.empty()) {
@@ -69,7 +69,7 @@ public:
         if(inoagent_get != 2) {
             std::random_device rd;
             std::mt19937 gen(rd());
-            std::uint32_t randomMember = members[std::uniform_int_distribution<size_t>(0, members.size() - 1)(gen)];
+            std::uint64_t randomMember = members[std::uniform_int_distribution<size_t>(0, members.size() - 1)(gen)];
             long long next_ts = timestamp_ms + 86400000;
 
             auto s = Core::Get()->bot->getApi().getChatMember(message->chat->id, randomMember);

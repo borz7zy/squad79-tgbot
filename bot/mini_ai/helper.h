@@ -19,9 +19,4 @@ struct AnswerRecord {
     std::string question;
     Answer answer;
     double heat;
-    mutable std::chrono::steady_clock::time_point last_used;
-
-    AnswerRecord(std::string q, Answer a, double h)
-            : question(std::move(q)), answer(std::move(a)), heat(h),
-              last_used(std::chrono::steady_clock::now()) {}
 };

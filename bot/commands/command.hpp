@@ -29,7 +29,8 @@ public:
             bot->getEvents().onCommand(command.commandName,
                    [command](TgBot::Message::Ptr message) {
                     if (command.onlyAdmin && !isAdmin(message)) {
-                        Core::Get()->bot->getApi().sendMessage(message->chat->id, "Команду могут использовать только админы чатов!");
+                        Core::Get()->bot->getApi().sendMessage((!message->chat->username.empty()) ? message->chat->username : std::to_string(message->chat->id),
+                                                               "Команду могут использовать только админы чатов!");
                         rn;
                     }
                     
@@ -42,7 +43,7 @@ public:
                         updateCooldown(message->chat->id, command.commandName);
                     } else {
                         Core::Get()->bot->getApi().sendMessage(
-                        message->chat->id,
+                                (!message->chat->username.empty()) ? message->chat->username : std::to_string(message->chat->id),
                         "Эта команда может быть использована только в чате, в котором инициализирован бот!");
                     }
                 }

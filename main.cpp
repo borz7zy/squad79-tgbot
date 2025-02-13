@@ -30,18 +30,16 @@ int main()
     std::signal(SIGTERM, signalHandler);
 
     Logger::Get()->Log("Main start");
-
-    try
-    {
-        TgBot::TgLongPoll longPoll(*Core::Get()->bot);
-        while (!g_shutdownRequested)
-        {
+    TgBot::TgLongPoll longPoll(*Core::Get()->bot);
+    while (!g_shutdownRequested) {
+        try {
             longPoll.start();
+//            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
-    }
-    catch (TgBot::TgException &e)
-    {
-        Logger::Get()->Log("Error: %s", e.what());
+        catch (TgBot::TgException &e) {
+            Logger::Get()->Log("Error: %s", e.what());
+//            std::this_thread::sleep_for(std::chrono::milliseconds(30000));
+        }
     }
 
     shutdownMain();
